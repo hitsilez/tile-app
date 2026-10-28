@@ -1,0 +1,6 @@
+{
+  "name": "Tile Calculator",
+  "description": "Simple offline tile and box calculator for tilers in Botswana and Southern Africa with step-by-step formulas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
