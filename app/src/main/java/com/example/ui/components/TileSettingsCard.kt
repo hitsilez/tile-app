@@ -10,6 +10,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -178,41 +182,266 @@ fun TileSettingsCard(
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                listOf(5, 10, 15, 20).forEach { wastePercent ->
-                    val isSelected = settings.wastePercentage == wastePercent
+            var customWasteInput by remember(settings.wastePercentage, settings.isCustomWaste) {
+                mutableStateOf(if (settings.isCustomWaste || settings.wastePercentage !in listOf(0, 5, 10, 15, 20)) settings.wastePercentage.toString() else "")
+            }
+            val isCustomActive = settings.isCustomWaste || settings.wastePercentage !in listOf(0, 5, 10, 15, 20)
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Row 1: 0% (no waste), 5%, 10%
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    // 0% (no waste)
+                    val isZeroSelected = !isCustomActive && settings.wastePercentage == 0
+                    Box(
+                        modifier = Modifier
+                            .weight(1.3f)
+                            .height(48.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(
+                                if (isZeroSelected) MaterialTheme.colorScheme.primaryContainer
+                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                            )
+                            .border(
+                                width = if (isZeroSelected) 2.dp else 1.dp,
+                                color = if (isZeroSelected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.outlineVariant,
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .clickable {
+                                onUpdate { it.copy(wastePercentage = 0, isCustomWaste = false) }
+                            }
+                            .testTag("waste_option_0"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = "0%",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = if (isZeroSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isZeroSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "no waste",
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                color = if (isZeroSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    // 5%
+                    val is5Selected = !isCustomActive && settings.wastePercentage == 5
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .height(48.dp)
                             .clip(RoundedCornerShape(8.dp))
                             .background(
-                                if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                                if (is5Selected) MaterialTheme.colorScheme.primaryContainer
                                 else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                             )
                             .border(
-                                width = if (isSelected) 2.dp else 1.dp,
-                                color = if (isSelected) MaterialTheme.colorScheme.primary
+                                width = if (is5Selected) 2.dp else 1.dp,
+                                color = if (is5Selected) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.outlineVariant,
                                 shape = RoundedCornerShape(8.dp)
                             )
                             .clickable {
-                                onUpdate { it.copy(wastePercentage = wastePercent) }
+                                onUpdate { it.copy(wastePercentage = 5, isCustomWaste = false) }
                             }
-                            .testTag("waste_option_$wastePercent"),
+                            .testTag("waste_option_5"),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "$wastePercent%",
+                            text = "5%",
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                            color = if (isSelected) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurface
+                            fontWeight = if (is5Selected) FontWeight.Bold else FontWeight.Medium,
+                            color = if (is5Selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                         )
                     }
+
+                    // 10%
+                    val is10Selected = !isCustomActive && settings.wastePercentage == 10
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(
+                                if (is10Selected) MaterialTheme.colorScheme.primaryContainer
+                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                            )
+                            .border(
+                                width = if (is10Selected) 2.dp else 1.dp,
+                                color = if (is10Selected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.outlineVariant,
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .clickable {
+                                onUpdate { it.copy(wastePercentage = 10, isCustomWaste = false) }
+                            }
+                            .testTag("waste_option_10"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "10%",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = if (is10Selected) FontWeight.Bold else FontWeight.Medium,
+                            color = if (is10Selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+
+                // Row 2: 15%, 20%, Custom %
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    // 15%
+                    val is15Selected = !isCustomActive && settings.wastePercentage == 15
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(
+                                if (is15Selected) MaterialTheme.colorScheme.primaryContainer
+                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                            )
+                            .border(
+                                width = if (is15Selected) 2.dp else 1.dp,
+                                color = if (is15Selected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.outlineVariant,
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .clickable {
+                                onUpdate { it.copy(wastePercentage = 15, isCustomWaste = false) }
+                            }
+                            .testTag("waste_option_15"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "15%",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = if (is15Selected) FontWeight.Bold else FontWeight.Medium,
+                            color = if (is15Selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    // 20%
+                    val is20Selected = !isCustomActive && settings.wastePercentage == 20
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(
+                                if (is20Selected) MaterialTheme.colorScheme.primaryContainer
+                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                            )
+                            .border(
+                                width = if (is20Selected) 2.dp else 1.dp,
+                                color = if (is20Selected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.outlineVariant,
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .clickable {
+                                onUpdate { it.copy(wastePercentage = 20, isCustomWaste = false) }
+                            }
+                            .testTag("waste_option_20"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "20%",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = if (is20Selected) FontWeight.Bold else FontWeight.Medium,
+                            color = if (is20Selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    // Custom %
+                    Box(
+                        modifier = Modifier
+                            .weight(1.3f)
+                            .height(48.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(
+                                if (isCustomActive) MaterialTheme.colorScheme.primaryContainer
+                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                            )
+                            .border(
+                                width = if (isCustomActive) 2.dp else 1.dp,
+                                color = if (isCustomActive) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.outlineVariant,
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .clickable {
+                                onUpdate { it.copy(isCustomWaste = true) }
+                            }
+                            .testTag("waste_option_custom"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (isCustomActive && settings.wastePercentage !in listOf(0, 5, 10, 15, 20)) {
+                                "${settings.wastePercentage}% (custom)"
+                            } else {
+                                "Custom %"
+                            },
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = if (isCustomActive) FontWeight.Bold else FontWeight.Medium,
+                            color = if (isCustomActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
+
+            // Editable custom waste field when Custom % is active
+            if (isCustomActive) {
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = customWasteInput,
+                    onValueChange = { input ->
+                        val digits = input.filter { it.isDigit() }
+                        customWasteInput = digits
+                        val parsed = digits.toIntOrNull()
+                        if (parsed != null) {
+                            val clamped = parsed.coerceIn(0, 50)
+                            onUpdate { it.copy(wastePercentage = clamped, isCustomWaste = true) }
+                        } else if (digits.isEmpty()) {
+                            onUpdate { it.copy(wastePercentage = 0, isCustomWaste = true) }
+                        }
+                    },
+                    label = { Text("Custom waste percentage (%)") },
+                    supportingText = { Text("Enter a number from 0 to 50%") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("custom_waste_percentage_input"),
+                    singleLine = true
+                )
+            }
+
+            // Note under picker when 0% is chosen
+            if (settings.wastePercentage == 0) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("waste_zero_note")
+                ) {
+                    Text(
+                        text = "No extra tiles are added for cuts or breakage. Spare tiles can still appear because boxes are rounded up.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(10.dp)
+                    )
                 }
             }
         }

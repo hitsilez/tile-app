@@ -535,6 +535,22 @@ fun JobDetailScreen(
                                 modifier = Modifier.padding(top = 14.dp),
                                 verticalArrangement = Arrangement.spacedBy(14.dp)
                             ) {
+                                val hasSmallWallTiles = remember(job.areas, job.unitSetting) {
+                                    job.areas.any { area ->
+                                        if (area.type == SpaceType.BATHROOM && (area.bathroomState.tileWallsToo || area.bathroomState.hasBathtub)) {
+                                            val (wM, hM) = TileCalculatorEngine.resolveTileDimensionsMeters(
+                                                area.bathroomState.wallTilePreset,
+                                                area.bathroomState.customWallTileLength,
+                                                area.bathroomState.customWallTileWidth,
+                                                job.unitSetting
+                                            )
+                                            val wCm = wM * 100.0
+                                            val hCm = hM * 100.0
+                                            (wCm > 0.0 && wCm < 39.99) || (hCm > 0.0 && hCm < 39.99)
+                                        } else false
+                                    }
+                                }
+
                                 MaterialSettingsCard(
                                     settings = job.materialSettings,
                                     trimSettings = job.trimSettings,
@@ -546,7 +562,8 @@ fun JobDetailScreen(
                                     },
                                     onAddOuterCorner = onAddOuterCorner,
                                     onRemoveOuterCorner = onRemoveOuterCorner,
-                                    onUpdateOuterCorner = onUpdateOuterCorner
+                                    onUpdateOuterCorner = onUpdateOuterCorner,
+                                    hasSmallWallTiles = hasSmallWallTiles
                                 )
                             }
                         }

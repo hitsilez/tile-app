@@ -32,6 +32,7 @@ fun MaterialSettingsCard(
     onAddOuterCorner: () -> Unit,
     onRemoveOuterCorner: (Int) -> Unit,
     onUpdateOuterCorner: (Int, String, String, TrimMaterial, Boolean) -> Unit,
+    hasSmallWallTiles: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     var showBondingMore by remember { mutableStateOf(false) }
@@ -332,6 +333,185 @@ fun MaterialSettingsCard(
         // ==========================================
         SectionTitle(title = "SPACERS (THE LITTLE PLASTIC CROSSES)")
 
+        FieldLabel(
+            label = "How do you want to buy spacers?",
+            note = "Spacers can be taken out the next day and reused, or bought for the whole job."
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            val isReuse = settings.spacerBuyMode == SpacerBuyMode.REUSE_DAILY
+            FilterChip(
+                selected = isReuse,
+                onClick = { onUpdateMaterialSettings { it.copy(spacerBuyMode = SpacerBuyMode.REUSE_DAILY) } },
+                label = { Text("Reuse them daily", fontSize = 14.sp) },
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = 48.dp)
+                    .testTag("spacer_mode_reuse_daily")
+            )
+
+            val isWholeJob = settings.spacerBuyMode == SpacerBuyMode.WHOLE_JOB
+            FilterChip(
+                selected = isWholeJob,
+                onClick = { onUpdateMaterialSettings { it.copy(spacerBuyMode = SpacerBuyMode.WHOLE_JOB) } },
+                label = { Text("Buy for the whole job", fontSize = 14.sp) },
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = 48.dp)
+                    .testTag("spacer_mode_whole_job")
+            )
+        }
+
+        if (settings.spacerBuyMode == SpacerBuyMode.REUSE_DAILY) {
+            Spacer(modifier = Modifier.height(2.dp))
+            FieldLabel(
+                label = "How fast do you tile?",
+                note = "Select your daily tiling speed to estimate packs needed for one day."
+            )
+
+            val slowLabel = "Slow (${settings.slowPacksDefault.ifBlank { "1" }} ${if (settings.slowPacksDefault == "1") "pack" else "packs"})"
+            val normalLabel = "Normal (${settings.normalPacksDefault.ifBlank { "3" }} ${if (settings.normalPacksDefault == "3") "pack" else "packs"})"
+            val fastLabel = "Fast (${settings.fastPacksDefault.ifBlank { "6" }} ${if (settings.fastPacksDefault == "6") "pack" else "packs"})"
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                FilterChip(
+                    selected = settings.tilingSpeed == TilingSpeed.SLOW,
+                    onClick = {
+                        onUpdateMaterialSettings {
+                            it.copy(
+                                tilingSpeed = TilingSpeed.SLOW,
+                                customPacksToBuy = it.slowPacksDefault.ifBlank { "1" }
+                            )
+                        }
+                    },
+                    label = { Text(slowLabel, fontSize = 12.sp) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 48.dp)
+                        .testTag("spacer_speed_slow")
+                )
+
+                FilterChip(
+                    selected = settings.tilingSpeed == TilingSpeed.NORMAL,
+                    onClick = {
+                        onUpdateMaterialSettings {
+                            it.copy(
+                                tilingSpeed = TilingSpeed.NORMAL,
+                                customPacksToBuy = it.normalPacksDefault.ifBlank { "3" }
+                            )
+                        }
+                    },
+                    label = { Text(normalLabel, fontSize = 12.sp) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 48.dp)
+                        .testTag("spacer_speed_normal")
+                )
+
+                FilterChip(
+                    selected = settings.tilingSpeed == TilingSpeed.FAST,
+                    onClick = {
+                        onUpdateMaterialSettings {
+                            it.copy(
+                                tilingSpeed = TilingSpeed.FAST,
+                                customPacksToBuy = it.fastPacksDefault.ifBlank { "6" }
+                            )
+                        }
+                    },
+                    label = { Text(fastLabel, fontSize = 12.sp) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 48.dp)
+                        .testTag("spacer_speed_fast")
+                )
+            }
+
+            Spacer(modifier = Modifier.height(2.dp))
+            OutlinedTextField(
+                value = settings.customPacksToBuy,
+                onValueChange = { s ->
+                    val digits = s.filter { it.isDigit() }
+                    onUpdateMaterialSettings { it.copy(customPacksToBuy = digits) }
+                },
+                label = { Text("Packs to buy") },
+                supportingText = { Text("Spacers come out the next day, so you only need enough for one day's work.", fontSize = 13.sp) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("spacer_packs_to_buy_input"),
+                singleLine = true
+            )
+
+            // Editable pack numbers for Slow, Normal and Fast
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = "Pack numbers for Slow, Normal and Fast speeds:",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = settings.slowPacksDefault,
+                    onValueChange = { v ->
+                        val d = v.filter { it.isDigit() }
+                        onUpdateMaterialSettings {
+                            val updated = it.copy(slowPacksDefault = d)
+                            if (it.tilingSpeed == TilingSpeed.SLOW) updated.copy(customPacksToBuy = d) else updated
+                        }
+                    },
+                    label = { Text("Slow") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("slow_packs_default_input"),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = settings.normalPacksDefault,
+                    onValueChange = { v ->
+                        val d = v.filter { it.isDigit() }
+                        onUpdateMaterialSettings {
+                            val updated = it.copy(normalPacksDefault = d)
+                            if (it.tilingSpeed == TilingSpeed.NORMAL) updated.copy(customPacksToBuy = d) else updated
+                        }
+                    },
+                    label = { Text("Normal") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("normal_packs_default_input"),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = settings.fastPacksDefault,
+                    onValueChange = { v ->
+                        val d = v.filter { it.isDigit() }
+                        onUpdateMaterialSettings {
+                            val updated = it.copy(fastPacksDefault = d)
+                            if (it.tilingSpeed == TilingSpeed.FAST) updated.copy(customPacksToBuy = d) else updated
+                        }
+                    },
+                    label = { Text("Fast") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("fast_packs_default_input"),
+                    singleLine = true
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
         OutlinedTextField(
             value = settings.spacersPerTile,
             onValueChange = { s -> onUpdateMaterialSettings { it.copy(spacersPerTile = s.filter { c -> c.isDigit() }) } },
@@ -344,6 +524,23 @@ fun MaterialSettingsCard(
             singleLine = true
         )
 
+        if (hasSmallWallTiles) {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("small_wall_tiles_spacer_hint")
+            ) {
+                Text(
+                    text = "Small tiles need more spacers. If you use 3 or 4 per tile, change 'Spacers per tile'.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    modifier = Modifier.padding(10.dp)
+                )
+            }
+        }
+
         OutlinedTextField(
             value = settings.spacerPackSize,
             onValueChange = { p -> onUpdateMaterialSettings { it.copy(spacerPackSize = p.filter { c -> c.isDigit() }) } },
@@ -353,6 +550,18 @@ fun MaterialSettingsCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("spacer_pack_size_input"),
+            singleLine = true
+        )
+
+        OutlinedTextField(
+            value = settings.spacerLossPercent,
+            onValueChange = { p -> onUpdateMaterialSettings { it.copy(spacerLossPercent = p.filter { c -> c.isDigit() }) } },
+            label = { Text("Extra spacers for loss (%)") },
+            supportingText = { Text("Extra percentage to cover dropped, damaged or stuck spacers (default 10%).", fontSize = 13.sp) },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("spacer_loss_percent_input"),
             singleLine = true
         )
 

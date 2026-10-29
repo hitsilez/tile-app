@@ -627,6 +627,52 @@ private fun BathroomTrimsContent(
         toggleTag = "bath_wall_top_trim_toggle",
         materialTagPrefix = "bath_wall_top_mat"
     )
+
+    // Bathtub Trims
+    if (bathroomState.hasBathtub) {
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider()
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Text(
+            text = "BATHTUB TRIMS",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+
+        val bathLenAroundM = bathroomState.bathtubLengthAroundM(unit)
+        TrimRunRow(
+            title = "Strip on top edge of the bathtub",
+            lengthSubtitle = "${formatTrimLen(bathLenAroundM)} m (equal to length around bathtub)",
+            isEnabled = bathroomState.bathtubTopEdgeTrimEnabled,
+            onToggle = { enabled -> onUpdateBathroomState { it.copy(bathtubTopEdgeTrimEnabled = enabled) } },
+            material = bathroomState.bathtubTopEdgeTrimMaterial,
+            onMaterialChange = { mat -> onUpdateBathroomState { it.copy(bathtubTopEdgeTrimMaterial = mat) } },
+            toggleTag = "bath_top_edge_trim_toggle",
+            materialTagPrefix = "bath_top_edge_mat"
+        )
+
+        val cornerCount = bathroomState.bathtubCornerCount()
+        val cornerHeightM = bathroomState.bathtubHeightM()
+        val cornerRunM = cornerCount * cornerHeightM
+        Spacer(modifier = Modifier.height(10.dp))
+        TrimRunRow(
+            title = "Strips on outside corners",
+            lengthSubtitle = if (cornerCount == 0) {
+                "0 corners (Against the wall)"
+            } else {
+                "$cornerCount corner${if (cornerCount == 1) "" else "s"} (${formatTrimLen(cornerHeightM)} m height) = ${formatTrimLen(cornerRunM)} m"
+            },
+            isEnabled = bathroomState.bathtubCornerTrimEnabled && cornerCount > 0,
+            onToggle = { enabled -> onUpdateBathroomState { it.copy(bathtubCornerTrimEnabled = enabled) } },
+            material = bathroomState.bathtubCornerTrimMaterial,
+            onMaterialChange = { mat -> onUpdateBathroomState { it.copy(bathtubCornerTrimMaterial = mat) } },
+            toggleTag = "bath_corners_trim_toggle",
+            materialTagPrefix = "bath_corners_mat"
+        )
+    }
 }
 
 @Composable

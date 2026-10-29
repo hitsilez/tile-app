@@ -514,59 +514,12 @@ fun BathroomScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Bathtub Surround
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Bathtub Surround",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                text = "Tiled bathtub apron/surround (added to wall area)",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Switch(
-                            checked = bathroomState.hasBathtub,
-                            onCheckedChange = { checked -> onUpdate { it.copy(hasBathtub = checked) } },
-                            modifier = Modifier.testTag("bathtub_toggle")
-                        )
-                    }
-
-                    if (bathroomState.hasBathtub) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            OutlinedTextField(
-                                value = bathroomState.bathtubWidth,
-                                onValueChange = { w -> onUpdate { it.copy(bathtubWidth = w) } },
-                                label = { Text("Bathtub Width (${unit.symbol})") },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag("bathtub_width_input"),
-                                singleLine = true
-                            )
-                            OutlinedTextField(
-                                value = bathroomState.bathtubHeight,
-                                onValueChange = { h -> onUpdate { it.copy(bathtubHeight = h) } },
-                                label = { Text("Bathtub Height (${unit.symbol})") },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag("bathtub_height_input"),
-                                singleLine = true
-                            )
-                        }
-                    }
+                    // Bathtub Section
+                    com.example.ui.components.BathtubSection(
+                        bathroomState = bathroomState,
+                        unit = unit,
+                        onUpdate = onUpdate
+                    )
 
                     Spacer(modifier = Modifier.height(16.dp))
 

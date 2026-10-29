@@ -13,12 +13,24 @@ data class WallDimension(
     val height: String
 )
 
+enum class SpacerBuyMode(val label: String) {
+    REUSE_DAILY("Reuse them daily"),
+    WHOLE_JOB("Buy for the whole job")
+}
+
+enum class TilingSpeed(val label: String) {
+    SLOW("Slow"),
+    NORMAL("Normal"),
+    FAST("Fast")
+}
+
 data class FloorTileSettingsState(
     val preset: TilePreset = TilePreset.SIZE_60X60,
     val customLength: String = "60",
     val customWidth: String = "60",
     val tilesPerBox: String = "4",
-    val wastePercentage: Int = 10
+    val wastePercentage: Int = 10,
+    val isCustomWaste: Boolean = false
 )
 
 data class MaterialSettingsState(
@@ -36,8 +48,15 @@ data class MaterialSettingsState(
     val groutBagSize: GroutBagSize = GroutBagSize.BAG_5KG, // 5 kg or 2 kg
 
     // SPACERS
+    val spacerBuyMode: SpacerBuyMode = SpacerBuyMode.REUSE_DAILY,
+    val tilingSpeed: TilingSpeed = TilingSpeed.NORMAL,
+    val customPacksToBuy: String = "3", // editable field "Packs to buy", chosen number
+    val slowPacksDefault: String = "1",
+    val normalPacksDefault: String = "3",
+    val fastPacksDefault: String = "6",
     val spacersPerTile: String = "2", // default 2
     val spacerPackSize: String = "100", // default 100
+    val spacerLossPercent: String = "10", // Extra spacers for loss (%), default 10
 
     // BONDING LIQUID
     val bondingMode: BondingLiquidMode = BondingLiquidMode.ADDITIVE_SPLASH,
@@ -213,6 +232,19 @@ data class VerandaState(
     }
 }
 
+enum class BathtubShape(val label: String) {
+    AGAINST_WALL("Against the wall (front only)"),
+    L_SHAPE("L-shape"),
+    C_SHAPE("C-shape"),
+    ALL_SIDES("All sides (free-standing)"),
+    CUSTOM("Custom")
+}
+
+enum class BathtubLEnd(val label: String) {
+    LEFT("Left"),
+    RIGHT("Right")
+}
+
 data class BathroomState(
     // Floor
     val length: String = "2.5",
@@ -245,9 +277,25 @@ data class BathroomState(
     val doors: List<OpeningDimension> = listOf(
         OpeningDimension("door1", "0.8", "2.0")
     ),
+
+    // Bathtub
     val hasBathtub: Boolean = false,
-    val bathtubHeight: String = "0.6",
-    val bathtubWidth: String = "1.7",
+    val bathtubLength: String = "1.7",
+    val bathtubWidth: String = "0.7",
+    val bathtubHeight: String = "50", // height of the tiled side in cm
+    val bathtubShape: BathtubShape = BathtubShape.AGAINST_WALL,
+    val bathtubLEnd: BathtubLEnd = BathtubLEnd.RIGHT,
+    val bathtubFrontTiled: Boolean = true,
+    val bathtubBackTiled: Boolean = false,
+    val bathtubLeftTiled: Boolean = false,
+    val bathtubRightTiled: Boolean = false,
+    val tileBathtubTop: Boolean = false,
+    val bathtubTopWidthCm: String = "", // user types it, no default
+    val bathtubTopEdgeTrimEnabled: Boolean = true,
+    val bathtubTopEdgeTrimMaterial: TrimMaterial = TrimMaterial.PLASTIC,
+    val bathtubCornerTrimEnabled: Boolean = true,
+    val bathtubCornerTrimMaterial: TrimMaterial = TrimMaterial.PLASTIC,
+
     // Wall Top Trim
     val hasWallTopTrim: Boolean = false,
     val wallTopTrimMaterial: TrimMaterial = TrimMaterial.PLASTIC
@@ -267,5 +315,76 @@ data class BathroomState(
         while (newMats.size <= index) newMats.add(TrimMaterial.PLASTIC)
         newMats[index] = mat
         return copy(doorTrimMaterials = newMats)
+    }
+
+    fun isBathtubFrontOn(): Boolean = when (bathtubShape) {
+        BathtubShape.AGAINST_WALL -> true
+        BathtubShape.L_SHAPE -> true
+        BathtubShape.C_SHAPE -> true
+        BathtubShape.ALL_SIDES -> true
+        BathtubShape.CUSTOM -> bathtubFrontTiled
+    }
+
+    fun isBathtubBackOn(): Boolean = when (bathtubShape) {
+        BathtubShape.AGAINST_WALL -> false
+        BathtubShape.L_SHAPE -> false
+        BathtubShape.C_SHAPE -> false
+        BathtubShape.ALL_SIDES -> true
+        BathtubShape.CUSTOM -> bathtubBackTiled
+    }
+
+    fun isBathtubLeftOn(): Boolean = when (bathtubShape) {
+        BathtubShape.AGAINST_WALL -> false
+        BathtubShape.L_SHAPE -> bathtubLEnd == BathtubLEnd.LEFT
+        BathtubShape.C_SHAPE -> true
+        BathtubShape.ALL_SIDES -> true
+        BathtubShape.CUSTOM -> bathtubLeftTiled
+    }
+
+    fun isBathtubRightOn(): Boolean = when (bathtubShape) {
+        BathtubShape.AGAINST_WALL -> false
+        BathtubShape.L_SHAPE -> bathtubLEnd == BathtubLEnd.RIGHT
+        BathtubShape.C_SHAPE -> true
+        BathtubShape.ALL_SIDES -> true
+        BathtubShape.CUSTOM -> bathtubRightTiled
+    }
+
+    fun bathtubCornerCount(): Int {
+        val f = isBathtubFrontOn()
+        val b = isBathtubBackOn()
+        val l = isBathtubLeftOn()
+        val r = isBathtubRightOn()
+        var count = 0
+        if (f && l) count++
+        if (f && r) count++
+        if (b && l) count++
+        if (b && r) count++
+        return count
+    }
+
+    fun bathtubLengthAroundM(unit: UnitSystem): Double {
+        val lenM = unit.toMeters(bathtubLength.toDoubleOrNull() ?: 0.0)
+        val widM = unit.toMeters(bathtubWidth.toDoubleOrNull() ?: 0.0)
+        var total = 0.0
+        if (isBathtubFrontOn()) total += lenM
+        if (isBathtubBackOn()) total += lenM
+        if (isBathtubLeftOn()) total += widM
+        if (isBathtubRightOn()) total += widM
+        return total
+    }
+
+    fun bathtubHeightM(): Double {
+        val raw = bathtubHeight.toDoubleOrNull() ?: 0.0
+        return if (raw <= 3.0 && raw > 0.0) {
+            // legacy value stored in meters (e.g. 0.6)
+            raw
+        } else {
+            raw / 100.0
+        }
+    }
+
+    fun bathtubTopWidthM(): Double {
+        val raw = bathtubTopWidthCm.toDoubleOrNull() ?: 0.0
+        return raw / 100.0
     }
 }

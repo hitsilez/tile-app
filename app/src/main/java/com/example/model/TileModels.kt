@@ -391,6 +391,8 @@ data class MaterialCalculationResult(
     val spacerPackSize: Int,
     val spacerPacksToBuy: Int,
     val spacerFormulaExplanation: String,
+    val wholeJobSpacerPacks: Int = 0,
+    val spacerBuyMode: SpacerBuyMode = SpacerBuyMode.REUSE_DAILY,
 
     // Bonding Liquid
     val bondingMode: BondingLiquidMode,
@@ -443,6 +445,11 @@ data class CalculationResult(
     // Edge Trims Calculation Result
     val trims: TrimCalculationResult,
 
+    // Bathtub breakdown
+    val bathtubSidesAreaM2: Double = 0.0,
+    val bathtubTopAreaM2: Double = 0.0,
+    val hasBathtub: Boolean = false,
+
     // Per-area breakdown
     val areaBreakdowns: List<AreaBreakdownItem> = emptyList(),
 
@@ -466,7 +473,9 @@ data class AreaBreakdownItem(
     val baseFloorTiles: Int = 0,
     val floorWasteAllowanceTiles: Int = 0,
     val runMethodSummaries: List<String> = emptyList(),
-    val trimRuns: List<TrimRunItem> = emptyList()
+    val trimRuns: List<TrimRunItem> = emptyList(),
+    val bathtubSidesAreaM2: Double = 0.0,
+    val bathtubTopAreaM2: Double = 0.0
 )
 
 data class UserProfile(

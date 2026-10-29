@@ -635,121 +635,284 @@ fun QuotationScreen(
                             color = MaterialTheme.colorScheme.primary
                         )
 
-                        // Row 1: Copy & WhatsApp
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Button(
-                                onClick = {
-                                    clipboardManager.setText(AnnotatedString(quotationText))
-                                    coroutineScope.launch {
-                                        showCopiedBanner = true
-                                        delay(2500)
-                                        showCopiedBanner = false
-                                    }
-                                },
-                                shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag("quotation_copy_button")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.ContentCopy,
-                                    contentDescription = "Copy text",
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Copy", fontWeight = FontWeight.Bold)
-                            }
-
-                            FilledTonalButton(
-                                onClick = {
-                                    try {
-                                        val encoded = URLEncoder.encode(quotationText, "UTF-8").replace("+", "%20")
-                                        val uri = Uri.parse("https://wa.me/?text=$encoded")
-                                        val intent = Intent(Intent.ACTION_VIEW, uri)
-                                        context.startActivity(intent)
-                                    } catch (e: Exception) {
-                                        coroutineScope.launch {
-                                            snackbarHostState.showSnackbar("Could not open WhatsApp. Please use Copy instead.")
-                                        }
-                                    }
-                                },
-                                shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag("quotation_whatsapp_button")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Share,
-                                    contentDescription = "WhatsApp",
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("WhatsApp", fontWeight = FontWeight.Bold)
+                        val isShareSupported = remember(context) {
+                            try {
+                                val testIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_TEXT, "test")
+                                }
+                                val resolveInfos = context.packageManager.queryIntentActivities(testIntent, 0)
+                                resolveInfos.isNotEmpty()
+                            } catch (e: Exception) {
+                                true
                             }
                         }
 
-                        // Row 2: SMS & Email
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            OutlinedButton(
-                                onClick = {
-                                    try {
-                                        val encoded = URLEncoder.encode(quotationText, "UTF-8").replace("+", "%20")
-                                        val uri = Uri.parse("sms:?body=$encoded")
-                                        val intent = Intent(Intent.ACTION_VIEW, uri)
-                                        context.startActivity(intent)
-                                    } catch (e: Exception) {
-                                        coroutineScope.launch {
-                                            snackbarHostState.showSnackbar("Could not open SMS. Please use Copy instead.")
-                                        }
-                                    }
-                                },
-                                shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag("quotation_sms_button")
+                        // Row 1: Copy and Share (or Copy & WhatsApp if sharing unsupported)
+                        if (isShareSupported) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Sms,
-                                    contentDescription = "SMS",
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("SMS", fontWeight = FontWeight.Bold)
+                                Button(
+                                    onClick = {
+                                        clipboardManager.setText(AnnotatedString(quotationText))
+                                        coroutineScope.launch {
+                                            showCopiedBanner = true
+                                            delay(2500)
+                                            showCopiedBanner = false
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("quotation_copy_button")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ContentCopy,
+                                        contentDescription = "Copy text",
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Copy", fontWeight = FontWeight.Bold)
+                                }
+
+                                Button(
+                                    onClick = {
+                                        try {
+                                            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                                type = "text/plain"
+                                                putExtra(Intent.EXTRA_SUBJECT, job.name.ifBlank { "Quotation" })
+                                                putExtra(Intent.EXTRA_TEXT, quotationText)
+                                            }
+                                            val chooser = Intent.createChooser(sendIntent, "Share quotation")
+                                            context.startActivity(chooser)
+                                        } catch (e: Exception) {
+                                            coroutineScope.launch {
+                                                snackbarHostState.showSnackbar("Could not share. Use Copy instead.")
+                                            }
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("quotation_share_button")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Share,
+                                        contentDescription = "Share quotation",
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Share", fontWeight = FontWeight.Bold)
+                                }
                             }
 
-                            OutlinedButton(
-                                onClick = {
-                                    try {
-                                        val subject = job.name.ifBlank { "Quotation" }
-                                        val encSubject = URLEncoder.encode(subject, "UTF-8").replace("+", "%20")
-                                        val encBody = URLEncoder.encode(quotationText, "UTF-8").replace("+", "%20")
-                                        val uri = Uri.parse("mailto:?subject=$encSubject&body=$encBody")
-                                        val intent = Intent(Intent.ACTION_SENDTO, uri)
-                                        context.startActivity(intent)
-                                    } catch (e: Exception) {
-                                        coroutineScope.launch {
-                                            snackbarHostState.showSnackbar("Could not open Email. Please use Copy instead.")
-                                        }
-                                    }
-                                },
-                                shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag("quotation_email_button")
+                            // Row 2: WhatsApp, SMS & Email
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Email,
-                                    contentDescription = "Email",
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Email", fontWeight = FontWeight.Bold)
+                                FilledTonalButton(
+                                    onClick = {
+                                        try {
+                                            val encoded = URLEncoder.encode(quotationText, "UTF-8").replace("+", "%20")
+                                            val uri = Uri.parse("https://wa.me/?text=$encoded")
+                                            val intent = Intent(Intent.ACTION_VIEW, uri)
+                                            context.startActivity(intent)
+                                        } catch (e: Exception) {
+                                            coroutineScope.launch {
+                                                snackbarHostState.showSnackbar("Could not open WhatsApp. Please use Copy instead.")
+                                            }
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("quotation_whatsapp_button")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Chat,
+                                        contentDescription = "WhatsApp",
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("WhatsApp", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
+
+                                OutlinedButton(
+                                    onClick = {
+                                        try {
+                                            val encoded = URLEncoder.encode(quotationText, "UTF-8").replace("+", "%20")
+                                            val uri = Uri.parse("sms:?body=$encoded")
+                                            val intent = Intent(Intent.ACTION_VIEW, uri)
+                                            context.startActivity(intent)
+                                        } catch (e: Exception) {
+                                            coroutineScope.launch {
+                                                snackbarHostState.showSnackbar("Could not open SMS. Please use Copy instead.")
+                                            }
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("quotation_sms_button")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Sms,
+                                        contentDescription = "SMS",
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("SMS", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
+
+                                OutlinedButton(
+                                    onClick = {
+                                        try {
+                                            val subject = job.name.ifBlank { "Quotation" }
+                                            val encSubject = URLEncoder.encode(subject, "UTF-8").replace("+", "%20")
+                                            val encBody = URLEncoder.encode(quotationText, "UTF-8").replace("+", "%20")
+                                            val uri = Uri.parse("mailto:?subject=$encSubject&body=$encBody")
+                                            val intent = Intent(Intent.ACTION_SENDTO, uri)
+                                            context.startActivity(intent)
+                                        } catch (e: Exception) {
+                                            coroutineScope.launch {
+                                                snackbarHostState.showSnackbar("Could not open Email. Please use Copy instead.")
+                                            }
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("quotation_email_button")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Email,
+                                        contentDescription = "Email",
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Email", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
+                            }
+                        } else {
+                            // Row 1: Copy & WhatsApp
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Button(
+                                    onClick = {
+                                        clipboardManager.setText(AnnotatedString(quotationText))
+                                        coroutineScope.launch {
+                                            showCopiedBanner = true
+                                            delay(2500)
+                                            showCopiedBanner = false
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("quotation_copy_button")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ContentCopy,
+                                        contentDescription = "Copy text",
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Copy", fontWeight = FontWeight.Bold)
+                                }
+
+                                FilledTonalButton(
+                                    onClick = {
+                                        try {
+                                            val encoded = URLEncoder.encode(quotationText, "UTF-8").replace("+", "%20")
+                                            val uri = Uri.parse("https://wa.me/?text=$encoded")
+                                            val intent = Intent(Intent.ACTION_VIEW, uri)
+                                            context.startActivity(intent)
+                                        } catch (e: Exception) {
+                                            coroutineScope.launch {
+                                                snackbarHostState.showSnackbar("Could not open WhatsApp. Please use Copy instead.")
+                                            }
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("quotation_whatsapp_button")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Share,
+                                        contentDescription = "WhatsApp",
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("WhatsApp", fontWeight = FontWeight.Bold)
+                                }
+                            }
+
+                            // Row 2: SMS & Email
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = {
+                                        try {
+                                            val encoded = URLEncoder.encode(quotationText, "UTF-8").replace("+", "%20")
+                                            val uri = Uri.parse("sms:?body=$encoded")
+                                            val intent = Intent(Intent.ACTION_VIEW, uri)
+                                            context.startActivity(intent)
+                                        } catch (e: Exception) {
+                                            coroutineScope.launch {
+                                                snackbarHostState.showSnackbar("Could not open SMS. Please use Copy instead.")
+                                            }
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("quotation_sms_button")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Sms,
+                                        contentDescription = "SMS",
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("SMS", fontWeight = FontWeight.Bold)
+                                }
+
+                                OutlinedButton(
+                                    onClick = {
+                                        try {
+                                            val subject = job.name.ifBlank { "Quotation" }
+                                            val encSubject = URLEncoder.encode(subject, "UTF-8").replace("+", "%20")
+                                            val encBody = URLEncoder.encode(quotationText, "UTF-8").replace("+", "%20")
+                                            val uri = Uri.parse("mailto:?subject=$encSubject&body=$encBody")
+                                            val intent = Intent(Intent.ACTION_SENDTO, uri)
+                                            context.startActivity(intent)
+                                        } catch (e: Exception) {
+                                            coroutineScope.launch {
+                                                snackbarHostState.showSnackbar("Could not open Email. Please use Copy instead.")
+                                            }
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("quotation_email_button")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Email,
+                                        contentDescription = "Email",
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Email", fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                     }

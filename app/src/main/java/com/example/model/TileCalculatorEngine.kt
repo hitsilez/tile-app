@@ -494,8 +494,10 @@ object TileCalculatorEngine {
                 var wallTilesPerBox = 10
                 var wallTileLabel = ""
                 val wallFormulaExplanation = StringBuilder()
+                var singleBathtubSidesM2 = 0.0
+                var singleBathtubTopM2 = 0.0
 
-                if (bathroomState.tileWallsToo) {
+                if (bathroomState.tileWallsToo || bathroomState.hasBathtub) {
                     hasWallTiles = true
                     val resolvedWallDims = resolveTileDimensionsMeters(
                         bathroomState.wallTilePreset,
@@ -515,34 +517,42 @@ object TileCalculatorEngine {
                     }
 
                     // Wall areas
-                    val grossWallAreaM2 = bathroomState.walls.sumOf { wall ->
-                        val w = unit.toMeters(wall.width.toDoubleOrNull() ?: 0.0)
-                        val h = unit.toMeters(wall.height.toDoubleOrNull() ?: 0.0)
-                        w * h
-                    }
-
-                    // Windows (subtracted)
-                    val windowsAreaM2 = bathroomState.windows.sumOf { win ->
-                        val w = unit.toMeters(win.width.toDoubleOrNull() ?: 0.0)
-                        val h = unit.toMeters(win.height.toDoubleOrNull() ?: 0.0)
-                        w * h
-                    }
-
-                    // Doors (subtracted)
-                    val doorsAreaM2 = bathroomState.doors.sumOf { door ->
-                        val w = unit.toMeters(door.width.toDoubleOrNull() ?: 0.0)
-                        val h = unit.toMeters(door.height.toDoubleOrNull() ?: 0.0)
-                        w * h
-                    }
-
-                    // Bathtub surround (added)
-                    val bathtubAreaM2 = if (bathroomState.hasBathtub) {
-                        val h = unit.toMeters(bathroomState.bathtubHeight.toDoubleOrNull() ?: 0.0)
-                        val w = unit.toMeters(bathroomState.bathtubWidth.toDoubleOrNull() ?: 0.0)
-                        h * w
+                    val grossWallAreaM2 = if (bathroomState.tileWallsToo) {
+                        bathroomState.walls.sumOf { wall ->
+                            val w = unit.toMeters(wall.width.toDoubleOrNull() ?: 0.0)
+                            val h = unit.toMeters(wall.height.toDoubleOrNull() ?: 0.0)
+                            w * h
+                        }
                     } else 0.0
 
-                    netWallAreaM2 = max(0.0, grossWallAreaM2 - windowsAreaM2 - doorsAreaM2 + bathtubAreaM2)
+                    // Windows (subtracted)
+                    val windowsAreaM2 = if (bathroomState.tileWallsToo) {
+                        bathroomState.windows.sumOf { win ->
+                            val w = unit.toMeters(win.width.toDoubleOrNull() ?: 0.0)
+                            val h = unit.toMeters(win.height.toDoubleOrNull() ?: 0.0)
+                            w * h
+                        }
+                    } else 0.0
+
+                    // Doors (subtracted)
+                    val doorsAreaM2 = if (bathroomState.tileWallsToo) {
+                        bathroomState.doors.sumOf { door ->
+                            val w = unit.toMeters(door.width.toDoubleOrNull() ?: 0.0)
+                            val h = unit.toMeters(door.height.toDoubleOrNull() ?: 0.0)
+                            w * h
+                        }
+                    } else 0.0
+
+                    // Bathtub surround (added)
+                    if (bathroomState.hasBathtub) {
+                        val lengthAroundM = bathroomState.bathtubLengthAroundM(unit)
+                        val hM = bathroomState.bathtubHeightM()
+                        singleBathtubSidesM2 = lengthAroundM * hM
+                        singleBathtubTopM2 = if (bathroomState.tileBathtubTop) lengthAroundM * bathroomState.bathtubTopWidthM() else 0.0
+                    }
+                    val totalBathtubAreaM2 = singleBathtubSidesM2 + singleBathtubTopM2
+
+                    netWallAreaM2 = max(0.0, grossWallAreaM2 - windowsAreaM2 - doorsAreaM2 + totalBathtubAreaM2)
 
                     if (wallTileAreaM2 > 0.0) {
                         baseWallTiles = safeCeil(netWallAreaM2 / wallTileAreaM2)
@@ -560,8 +570,11 @@ object TileCalculatorEngine {
                     if (doorsAreaM2 > 0.0) {
                         wallFormulaExplanation.append("• Doors Area = -%.3f m² (subtracted)\n".format(doorsAreaM2))
                     }
-                    if (bathtubAreaM2 > 0.0) {
-                        wallFormulaExplanation.append("• Bathtub Surround Area = +%.3f m² (added to wall area)\n".format(bathtubAreaM2))
+                    if (singleBathtubSidesM2 > 0.0) {
+                        wallFormulaExplanation.append("• Bathtub Sides Area = +%.3f m² (added to wall area)\n".format(singleBathtubSidesM2))
+                    }
+                    if (singleBathtubTopM2 > 0.0) {
+                        wallFormulaExplanation.append("• Bathtub Top Area = +%.3f m² (added to wall area)\n".format(singleBathtubTopM2))
                     }
                     wallFormulaExplanation.append("• Net Wall Area = %.3f m²\n".format(netWallAreaM2))
                     wallFormulaExplanation.append("• Wall Tile Area = %.3f m × %.3f m = %.4f m²\n".format(wallTileLengthM, wallTileWidthM, wallTileAreaM2))
@@ -636,6 +649,9 @@ object TileCalculatorEngine {
                     totalTilesCount = totalTiles,
                     materials = materials,
                     trims = trims,
+                    bathtubSidesAreaM2 = singleBathtubSidesM2,
+                    bathtubTopAreaM2 = singleBathtubTopM2,
+                    hasBathtub = bathroomState.hasBathtub,
                     runMethodSummaries = runMethodSummaries
                 )
             }
@@ -763,15 +779,47 @@ object TileCalculatorEngine {
         // 3. SPACERS
         val spacersPerTile = (materialSettings.spacersPerTile.toIntOrNull() ?: 2).coerceAtLeast(0)
         val spacerPackSize = (materialSettings.spacerPackSize.toIntOrNull() ?: 100).coerceAtLeast(1)
-        val totalSpacersNeeded = totalTilesCount * spacersPerTile
-        val spacerPacksToBuy = if (totalSpacersNeeded > 0) safeCeil(totalSpacersNeeded.toDouble() / spacerPackSize.toDouble()) else 0
+        val spacerExtraLossPercent = (materialSettings.spacerLossPercent.toIntOrNull() ?: 10).coerceAtLeast(0)
+        val extraLossFraction = spacerExtraLossPercent / 100.0
 
-        val spacerFormulaExplanation = buildString {
-            append("• Joint size J = %.1f mm (same as grout)\n".format(jointWidthMm))
-            append("• Spacers needed = Total tiles × Spacers per tile = %d tiles × %d = %d spacers\n"
-                .format(totalTilesCount, spacersPerTile, totalSpacersNeeded))
-            append("• Packs to buy = ceil(Spacers needed / Pack size) = ceil(%d / %d) = %d packs"
-                .format(totalSpacersNeeded, spacerPackSize, spacerPacksToBuy))
+        val baseSpacers = totalTilesCount * spacersPerTile
+        val totalSpacersWithLoss = baseSpacers * (1.0 + extraLossFraction)
+        val totalSpacersRounded = Math.round(totalSpacersWithLoss).toInt()
+
+        val wholeJobPacks = if (totalTilesCount > 0 && spacersPerTile > 0) {
+            safeCeil(totalSpacersWithLoss / spacerPackSize.toDouble())
+        } else 0
+
+        val (spacerPacksToBuy, spacerFormulaExplanation) = when (materialSettings.spacerBuyMode) {
+            SpacerBuyMode.WHOLE_JOB -> {
+                val packWord = if (wholeJobPacks == 1) "pack" else "packs"
+                val expl = if (totalTilesCount > 0) {
+                    "Whole job: %d tiles x %d spacers + %d%% = %d, so %d %s"
+                        .format(totalTilesCount, spacersPerTile, spacerExtraLossPercent, totalSpacersRounded, wholeJobPacks, packWord)
+                } else {
+                    "Whole job: 0 packs"
+                }
+                Pair(wholeJobPacks, expl)
+            }
+            SpacerBuyMode.REUSE_DAILY -> {
+                val chosenPacks = (materialSettings.customPacksToBuy.toIntOrNull() ?: 3).coerceAtLeast(0)
+                val finalPacks = if (totalTilesCount > 0) minOf(chosenPacks, wholeJobPacks) else 0
+                val packWord = if (finalPacks == 1) "pack" else "packs"
+
+                val speedDefault = when (materialSettings.tilingSpeed) {
+                    TilingSpeed.SLOW -> materialSettings.slowPacksDefault.toIntOrNull() ?: 1
+                    TilingSpeed.NORMAL -> materialSettings.normalPacksDefault.toIntOrNull() ?: 3
+                    TilingSpeed.FAST -> materialSettings.fastPacksDefault.toIntOrNull() ?: 6
+                }
+                val speedLabel = if (chosenPacks == speedDefault) ", ${materialSettings.tilingSpeed.label}" else ""
+                val expl = if (totalTilesCount > 0) {
+                    "Reuse daily%s: %d %s (the whole job would need %d)"
+                        .format(speedLabel, finalPacks, packWord, wholeJobPacks)
+                } else {
+                    "Reuse daily: 0 packs"
+                }
+                Pair(finalPacks, expl)
+            }
         }
 
         // 4. BONDING LIQUID
@@ -837,10 +885,12 @@ object TileCalculatorEngine {
             groutFormulaExplanation = groutFormulaExplanation,
             totalTilesCount = totalTilesCount,
             spacersPerTile = spacersPerTile,
-            totalSpacersNeeded = totalSpacersNeeded,
+            totalSpacersNeeded = baseSpacers,
             spacerPackSize = spacerPackSize,
             spacerPacksToBuy = spacerPacksToBuy,
             spacerFormulaExplanation = spacerFormulaExplanation,
+            wholeJobSpacerPacks = wholeJobPacks,
+            spacerBuyMode = materialSettings.spacerBuyMode,
             bondingMode = materialSettings.bondingMode,
             totalBondingLiquidLiters = totalBondingLiquidLiters,
             bondingLiquidDisplayText = bondingDisplayText,
@@ -1087,6 +1137,51 @@ object TileCalculatorEngine {
                         )
                     }
                 }
+
+                // Bathtub trims
+                if (area.bathroomState.hasBathtub) {
+                    val lengthAroundM = area.bathroomState.bathtubLengthAroundM(unit)
+                    if (area.bathroomState.bathtubTopEdgeTrimEnabled && lengthAroundM > 0.0) {
+                        val mat = area.bathroomState.bathtubTopEdgeTrimMaterial
+                        runs.add(
+                            TrimRunItem(
+                                id = "bath_top_edge_${area.id}",
+                                name = "Bathtub top edge",
+                                lengthM = lengthAroundM,
+                                material = mat,
+                                isEnabled = true,
+                                areaId = area.id,
+                                areaName = area.name,
+                                displayText = "Bathtub top edge, ${mat.label.lowercase()}: ${formatTrimLen(lengthAroundM)} m"
+                            )
+                        )
+                    }
+
+                    val cornerCount = area.bathroomState.bathtubCornerCount()
+                    val heightM = area.bathroomState.bathtubHeightM()
+                    val cornerRunM = cornerCount * heightM
+                    if (area.bathroomState.bathtubCornerTrimEnabled && cornerCount > 0 && cornerRunM > 0.0) {
+                        val mat = area.bathroomState.bathtubCornerTrimMaterial
+                        val cornerName = if (cornerCount == 1) "Bathtub corner" else "Bathtub corners"
+                        val dispText = if (cornerCount == 1) {
+                            "Bathtub corner, ${mat.label.lowercase()}: ${formatTrimLen(cornerRunM)} m"
+                        } else {
+                            "Bathtub corners ($cornerCount), ${mat.label.lowercase()}: ${formatTrimLen(cornerRunM)} m"
+                        }
+                        runs.add(
+                            TrimRunItem(
+                                id = "bath_corners_${area.id}",
+                                name = cornerName,
+                                lengthM = cornerRunM,
+                                material = mat,
+                                isEnabled = true,
+                                areaId = area.id,
+                                areaName = area.name,
+                                displayText = dispText
+                            )
+                        )
+                    }
+                }
             }
         }
         return runs
@@ -1316,6 +1411,10 @@ object TileCalculatorEngine {
 
         val allTrimRuns = mutableListOf<TrimRunItem>()
         val areaBreakdowns = mutableListOf<AreaBreakdownItem>()
+
+        var jobBathtubSidesAreaM2 = 0.0
+        var jobBathtubTopAreaM2 = 0.0
+        var jobHasBathtub = false
 
         val skirtingFormulaDetails = StringBuilder()
         val stepFaceFormulaDetails = StringBuilder()
@@ -1603,7 +1702,10 @@ object TileCalculatorEngine {
                     var areaWallTiles = 0
                     var areaNetWallM2 = 0.0
 
-                    if (area.bathroomState.tileWallsToo) {
+                    var areaBathtubSidesM2 = 0.0
+                    var areaBathtubTopM2 = 0.0
+
+                    if (area.bathroomState.tileWallsToo || area.bathroomState.hasBathtub) {
                         hasWallTiles = true
                         val resolvedWallDims = resolveTileDimensionsMeters(
                             area.bathroomState.wallTilePreset,
@@ -1622,28 +1724,40 @@ object TileCalculatorEngine {
                             "${area.bathroomState.customWallTileLength} × ${area.bathroomState.customWallTileWidth} ${unit.symbol}"
                         }
 
-                        val grossWallAreaM2 = area.bathroomState.walls.sumOf { wall ->
-                            val w = unit.toMeters(wall.width.toDoubleOrNull() ?: 0.0)
-                            val h = unit.toMeters(wall.height.toDoubleOrNull() ?: 0.0)
-                            w * h
-                        }
-                        val windowsAreaM2 = area.bathroomState.windows.sumOf { win ->
-                            val w = unit.toMeters(win.width.toDoubleOrNull() ?: 0.0)
-                            val h = unit.toMeters(win.height.toDoubleOrNull() ?: 0.0)
-                            w * h
-                        }
-                        val doorsAreaM2 = area.bathroomState.doors.sumOf { door ->
-                            val w = unit.toMeters(door.width.toDoubleOrNull() ?: 0.0)
-                            val h = unit.toMeters(door.height.toDoubleOrNull() ?: 0.0)
-                            w * h
-                        }
-                        val bathtubAreaM2 = if (area.bathroomState.hasBathtub) {
-                            val h = unit.toMeters(area.bathroomState.bathtubHeight.toDoubleOrNull() ?: 0.0)
-                            val w = unit.toMeters(area.bathroomState.bathtubWidth.toDoubleOrNull() ?: 0.0)
-                            h * w
+                        val grossWallAreaM2 = if (area.bathroomState.tileWallsToo) {
+                            area.bathroomState.walls.sumOf { wall ->
+                                val w = unit.toMeters(wall.width.toDoubleOrNull() ?: 0.0)
+                                val h = unit.toMeters(wall.height.toDoubleOrNull() ?: 0.0)
+                                w * h
+                            }
+                        } else 0.0
+                        val windowsAreaM2 = if (area.bathroomState.tileWallsToo) {
+                            area.bathroomState.windows.sumOf { win ->
+                                val w = unit.toMeters(win.width.toDoubleOrNull() ?: 0.0)
+                                val h = unit.toMeters(win.height.toDoubleOrNull() ?: 0.0)
+                                w * h
+                            }
+                        } else 0.0
+                        val doorsAreaM2 = if (area.bathroomState.tileWallsToo) {
+                            area.bathroomState.doors.sumOf { door ->
+                                val w = unit.toMeters(door.width.toDoubleOrNull() ?: 0.0)
+                                val h = unit.toMeters(door.height.toDoubleOrNull() ?: 0.0)
+                                w * h
+                            }
                         } else 0.0
 
-                        areaNetWallM2 = max(0.0, grossWallAreaM2 - windowsAreaM2 - doorsAreaM2 + bathtubAreaM2)
+                        if (area.bathroomState.hasBathtub) {
+                            jobHasBathtub = true
+                            val lengthAroundM = area.bathroomState.bathtubLengthAroundM(unit)
+                            val hM = area.bathroomState.bathtubHeightM()
+                            areaBathtubSidesM2 = lengthAroundM * hM
+                            areaBathtubTopM2 = if (area.bathroomState.tileBathtubTop) lengthAroundM * area.bathroomState.bathtubTopWidthM() else 0.0
+                            jobBathtubSidesAreaM2 += areaBathtubSidesM2
+                            jobBathtubTopAreaM2 += areaBathtubTopM2
+                        }
+                        val totalBathtubAreaM2 = areaBathtubSidesM2 + areaBathtubTopM2
+
+                        areaNetWallM2 = max(0.0, grossWallAreaM2 - windowsAreaM2 - doorsAreaM2 + totalBathtubAreaM2)
                         totalNetWallAreaM2 += areaNetWallM2
 
                         if (areaWallTileAreaM2 > 0.0) {
@@ -1682,7 +1796,9 @@ object TileCalculatorEngine {
                             baseFloorTiles = baseTilesForArea,
                             floorWasteAllowanceTiles = wasteTilesForArea,
                             runMethodSummaries = areaRunSummaries,
-                            trimRuns = areaTrimRuns
+                            trimRuns = areaTrimRuns,
+                            bathtubSidesAreaM2 = areaBathtubSidesM2,
+                            bathtubTopAreaM2 = areaBathtubTopM2
                         )
                     )
                 }
@@ -1883,6 +1999,9 @@ object TileCalculatorEngine {
             totalTilesCount = totalTilesCount,
             materials = materials,
             trims = trims,
+            bathtubSidesAreaM2 = jobBathtubSidesAreaM2,
+            bathtubTopAreaM2 = jobBathtubTopAreaM2,
+            hasBathtub = jobHasBathtub,
             areaBreakdowns = areaBreakdowns,
             runMethodSummaries = jobRunSummaries
         )

@@ -45,6 +45,7 @@ object JobJsonSerializer {
         ts.put("customWidth", job.tileSettings.customWidth)
         ts.put("tilesPerBox", job.tileSettings.tilesPerBox)
         ts.put("wastePercentage", job.tileSettings.wastePercentage)
+        ts.put("isCustomWaste", job.tileSettings.isCustomWaste)
         obj.put("tileSettings", ts)
 
         // Material Settings
@@ -58,8 +59,15 @@ object JobJsonSerializer {
         ms.put("jointDepthMm", job.materialSettings.jointDepthMm)
         ms.put("groutType", job.materialSettings.groutType.name)
         ms.put("groutBagSize", job.materialSettings.groutBagSize.name)
+        ms.put("spacerBuyMode", job.materialSettings.spacerBuyMode.name)
+        ms.put("tilingSpeed", job.materialSettings.tilingSpeed.name)
+        ms.put("customPacksToBuy", job.materialSettings.customPacksToBuy)
+        ms.put("slowPacksDefault", job.materialSettings.slowPacksDefault)
+        ms.put("normalPacksDefault", job.materialSettings.normalPacksDefault)
+        ms.put("fastPacksDefault", job.materialSettings.fastPacksDefault)
         ms.put("spacersPerTile", job.materialSettings.spacersPerTile)
         ms.put("spacerPackSize", job.materialSettings.spacerPackSize)
+        ms.put("spacerLossPercent", job.materialSettings.spacerLossPercent)
         ms.put("bondingMode", job.materialSettings.bondingMode.name)
         ms.put("additiveMlPerBag", job.materialSettings.additiveMlPerBag)
         ms.put("replacementLitersPerBag", job.materialSettings.replacementLitersPerBag)
@@ -139,7 +147,8 @@ object JobJsonSerializer {
                     customLength = tsObj.optString("customLength", "60"),
                     customWidth = tsObj.optString("customWidth", "60"),
                     tilesPerBox = tsObj.optString("tilesPerBox", "4"),
-                    wastePercentage = tsObj.optInt("wastePercentage", 10)
+                    wastePercentage = tsObj.optInt("wastePercentage", 10),
+                    isCustomWaste = tsObj.optBoolean("isCustomWaste", false)
                 )
             } else FloorTileSettingsState()
 
@@ -151,6 +160,8 @@ object JobJsonSerializer {
                 val groutType = try { GroutType.valueOf(msObj.optString("groutType", GroutType.CEMENT.name)) } catch (e: Exception) { GroutType.CEMENT }
                 val groutBagSize = try { GroutBagSize.valueOf(msObj.optString("groutBagSize", GroutBagSize.BAG_5KG.name)) } catch (e: Exception) { GroutBagSize.BAG_5KG }
                 val bondingMode = try { BondingLiquidMode.valueOf(msObj.optString("bondingMode", BondingLiquidMode.ADDITIVE_SPLASH.name)) } catch (e: Exception) { BondingLiquidMode.ADDITIVE_SPLASH }
+                val spacerBuyMode = try { SpacerBuyMode.valueOf(msObj.optString("spacerBuyMode", SpacerBuyMode.REUSE_DAILY.name)) } catch (e: Exception) { SpacerBuyMode.REUSE_DAILY }
+                val tilingSpeed = try { TilingSpeed.valueOf(msObj.optString("tilingSpeed", TilingSpeed.NORMAL.name)) } catch (e: Exception) { TilingSpeed.NORMAL }
 
                 MaterialSettingsState(
                     baseCoverageAt5mm = msObj.optString("baseCoverageAt5mm", "3.0"),
@@ -162,8 +173,15 @@ object JobJsonSerializer {
                     jointDepthMm = msObj.optString("jointDepthMm", "10"),
                     groutType = groutType,
                     groutBagSize = groutBagSize,
+                    spacerBuyMode = spacerBuyMode,
+                    tilingSpeed = tilingSpeed,
+                    customPacksToBuy = msObj.optString("customPacksToBuy", "3"),
+                    slowPacksDefault = msObj.optString("slowPacksDefault", "1"),
+                    normalPacksDefault = msObj.optString("normalPacksDefault", "3"),
+                    fastPacksDefault = msObj.optString("fastPacksDefault", "6"),
                     spacersPerTile = msObj.optString("spacersPerTile", "2"),
                     spacerPackSize = msObj.optString("spacerPackSize", "100"),
+                    spacerLossPercent = msObj.optString("spacerLossPercent", "10"),
                     bondingMode = bondingMode,
                     additiveMlPerBag = msObj.optString("additiveMlPerBag", "250"),
                     replacementLitersPerBag = msObj.optString("replacementLitersPerBag", "5")
@@ -387,8 +405,22 @@ object JobJsonSerializer {
         }
         bs.put("doors", doorsArr)
         bs.put("hasBathtub", area.bathroomState.hasBathtub)
-        bs.put("bathtubHeight", area.bathroomState.bathtubHeight)
+        bs.put("bathtubLength", area.bathroomState.bathtubLength)
         bs.put("bathtubWidth", area.bathroomState.bathtubWidth)
+        bs.put("bathtubHeight", area.bathroomState.bathtubHeight)
+        bs.put("bathtubHeightCm", area.bathroomState.bathtubHeight)
+        bs.put("bathtubShape", area.bathroomState.bathtubShape.name)
+        bs.put("bathtubLEnd", area.bathroomState.bathtubLEnd.name)
+        bs.put("bathtubFrontTiled", area.bathroomState.bathtubFrontTiled)
+        bs.put("bathtubBackTiled", area.bathroomState.bathtubBackTiled)
+        bs.put("bathtubLeftTiled", area.bathroomState.bathtubLeftTiled)
+        bs.put("bathtubRightTiled", area.bathroomState.bathtubRightTiled)
+        bs.put("tileBathtubTop", area.bathroomState.tileBathtubTop)
+        bs.put("bathtubTopWidthCm", area.bathroomState.bathtubTopWidthCm)
+        bs.put("bathtubTopEdgeTrimEnabled", area.bathroomState.bathtubTopEdgeTrimEnabled)
+        bs.put("bathtubTopEdgeTrimMaterial", area.bathroomState.bathtubTopEdgeTrimMaterial.name)
+        bs.put("bathtubCornerTrimEnabled", area.bathroomState.bathtubCornerTrimEnabled)
+        bs.put("bathtubCornerTrimMaterial", area.bathroomState.bathtubCornerTrimMaterial.name)
         obj.put("bathroomState", bs)
 
         return obj
@@ -614,8 +646,43 @@ object JobJsonSerializer {
                     windows = winList,
                     doors = doorsList,
                     hasBathtub = bsObj.optBoolean("hasBathtub", false),
-                    bathtubHeight = bsObj.optString("bathtubHeight", "0.6"),
-                    bathtubWidth = bsObj.optString("bathtubWidth", "1.7"),
+                    bathtubLength = bsObj.optString("bathtubLength", bsObj.optString("bathtubWidth", "1.7")),
+                    bathtubWidth = if (bsObj.has("bathtubLength")) bsObj.optString("bathtubWidth", "0.7") else "0.7",
+                    bathtubHeight = if (bsObj.has("bathtubHeightCm")) {
+                        bsObj.optString("bathtubHeightCm", "50")
+                    } else {
+                        val oldH = bsObj.optString("bathtubHeight", "50")
+                        val d = oldH.toDoubleOrNull() ?: 50.0
+                        if (d in 0.01..3.0) (d * 100).toInt().toString() else oldH
+                    },
+                    bathtubShape = try {
+                        BathtubShape.valueOf(bsObj.optString("bathtubShape", BathtubShape.AGAINST_WALL.name))
+                    } catch (e: Exception) {
+                        BathtubShape.AGAINST_WALL
+                    },
+                    bathtubLEnd = try {
+                        BathtubLEnd.valueOf(bsObj.optString("bathtubLEnd", BathtubLEnd.RIGHT.name))
+                    } catch (e: Exception) {
+                        BathtubLEnd.RIGHT
+                    },
+                    bathtubFrontTiled = bsObj.optBoolean("bathtubFrontTiled", true),
+                    bathtubBackTiled = bsObj.optBoolean("bathtubBackTiled", false),
+                    bathtubLeftTiled = bsObj.optBoolean("bathtubLeftTiled", false),
+                    bathtubRightTiled = bsObj.optBoolean("bathtubRightTiled", false),
+                    tileBathtubTop = bsObj.optBoolean("tileBathtubTop", false),
+                    bathtubTopWidthCm = bsObj.optString("bathtubTopWidthCm", ""),
+                    bathtubTopEdgeTrimEnabled = bsObj.optBoolean("bathtubTopEdgeTrimEnabled", true),
+                    bathtubTopEdgeTrimMaterial = try {
+                        TrimMaterial.valueOf(bsObj.optString("bathtubTopEdgeTrimMaterial", TrimMaterial.PLASTIC.name))
+                    } catch (e: Exception) {
+                        TrimMaterial.PLASTIC
+                    },
+                    bathtubCornerTrimEnabled = bsObj.optBoolean("bathtubCornerTrimEnabled", true),
+                    bathtubCornerTrimMaterial = try {
+                        TrimMaterial.valueOf(bsObj.optString("bathtubCornerTrimMaterial", TrimMaterial.PLASTIC.name))
+                    } catch (e: Exception) {
+                        TrimMaterial.PLASTIC
+                    },
                     hasWallTopTrim = hasWallTopTrim,
                     wallTopTrimMaterial = wallTopTrimMaterial
                 )

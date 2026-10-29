@@ -1,6 +1,8 @@
 package com.example
 
 import com.example.model.*
+import com.example.data.JobJsonSerializer
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -936,6 +938,410 @@ class ExampleUnitTest {
             matResult.adhesiveFormulaExplanation.contains("0.12") &&
             matResult.adhesiveFormulaExplanation.contains("3 bags")
         )
+    }
+
+    @Test
+    fun testBathtub_CaseA_LShape() {
+        // TEST A:
+        // Bathtub 1.7 m long, 0.7 m wide, side 50 cm high, top tiled 15 cm wide
+        // L-shape (Front + Right):
+        // around = 1.7 + 0.7 = 2.4 m
+        // sides = 2.4 x 0.5 = 1.2 m²
+        // top = 2.4 x 0.15 = 0.36 m²
+        // Corners = 1 corner (0.5 m)
+        // Trims = 2.4 m top + 1 corner 0.5 m = 2.9 m -> ceil(2.9 x 1.1 / 2.5) = 2 pieces
+        val bathArea = AreaItem(
+            id = "bath_a",
+            name = "Bathroom",
+            type = SpaceType.BATHROOM,
+            bathroomState = BathroomState(
+                length = "2.5",
+                width = "2.0",
+                tileWallsToo = false,
+                hasBathtub = true,
+                bathtubLength = "1.7",
+                bathtubWidth = "0.7",
+                bathtubHeight = "50",
+                bathtubShape = BathtubShape.L_SHAPE,
+                bathtubLEnd = BathtubLEnd.RIGHT,
+                tileBathtubTop = true,
+                bathtubTopWidthCm = "15",
+                bathtubTopEdgeTrimEnabled = true,
+                bathtubTopEdgeTrimMaterial = TrimMaterial.PLASTIC,
+                bathtubCornerTrimEnabled = true,
+                bathtubCornerTrimMaterial = TrimMaterial.PLASTIC
+            )
+        )
+
+        assertEquals(2.4, bathArea.bathroomState.bathtubLengthAroundM(UnitSystem.METERS), 0.001)
+        assertEquals(1, bathArea.bathroomState.bathtubCornerCount())
+
+        val result = TileCalculatorEngine.calculateJob(
+            Job(id = "job_bath_a", name = "Test Bath A", areas = listOf(bathArea))
+        )
+
+        assertEquals("Bathtub sides area must be 1.2 m²", 1.2, result.bathtubSidesAreaM2, 0.001)
+        assertEquals("Bathtub top area must be 0.36 m²", 0.36, result.bathtubTopAreaM2, 0.001)
+        assertEquals("Net wall area should equal bathtub sides + top = 1.56 m²", 1.56, result.netWallAreaM2, 0.001)
+
+        // Trims: 2.4 m top + 0.5 m corner = 2.9 m -> 2 pieces
+        assertEquals("Plastic trim run must be 2.9 m", 2.9, result.trims.plasticTotalRunLengthM, 0.001)
+        assertEquals("Plastic trim pieces must be 2", 2, result.trims.plasticPiecesNeeded)
+    }
+
+    @Test
+    fun testBathtub_CaseB_CShape() {
+        // TEST B:
+        // C-shape (Front + Left + Right):
+        // around = 1.7 + 0.7 + 0.7 = 3.1 m
+        // corners = 2 corners (2 x 0.5 = 1.0 m)
+        // Trims = 3.1 m + 2 corners 0.5 m = 4.1 m -> ceil(4.1 x 1.1 / 2.5) = 2 pieces
+        val bathArea = AreaItem(
+            id = "bath_b",
+            name = "Bathroom",
+            type = SpaceType.BATHROOM,
+            bathroomState = BathroomState(
+                length = "2.5",
+                width = "2.0",
+                tileWallsToo = false,
+                hasBathtub = true,
+                bathtubLength = "1.7",
+                bathtubWidth = "0.7",
+                bathtubHeight = "50",
+                bathtubShape = BathtubShape.C_SHAPE,
+                tileBathtubTop = true,
+                bathtubTopWidthCm = "15",
+                bathtubTopEdgeTrimEnabled = true,
+                bathtubTopEdgeTrimMaterial = TrimMaterial.PLASTIC,
+                bathtubCornerTrimEnabled = true,
+                bathtubCornerTrimMaterial = TrimMaterial.PLASTIC
+            )
+        )
+
+        assertEquals(3.1, bathArea.bathroomState.bathtubLengthAroundM(UnitSystem.METERS), 0.001)
+        assertEquals(2, bathArea.bathroomState.bathtubCornerCount())
+
+        val result = TileCalculatorEngine.calculateJob(
+            Job(id = "job_bath_b", name = "Test Bath B", areas = listOf(bathArea))
+        )
+
+        assertEquals("Trims run must be 4.1 m", 4.1, result.trims.plasticTotalRunLengthM, 0.001)
+        assertEquals("Trim pieces must be 2", 2, result.trims.plasticPiecesNeeded)
+    }
+
+    @Test
+    fun testBathtub_CaseC_AllSides() {
+        // TEST C:
+        // All sides (Front + Back + Left + Right):
+        // around = 1.7 + 1.7 + 0.7 + 0.7 = 4.8 m
+        // corners = 4 corners (4 x 0.5 = 2.0 m)
+        // Trims = 4.8 m + 4 corners 0.5 m = 6.8 m -> ceil(6.8 x 1.1 / 2.5) = 3 pieces
+        val bathArea = AreaItem(
+            id = "bath_c",
+            name = "Bathroom",
+            type = SpaceType.BATHROOM,
+            bathroomState = BathroomState(
+                length = "2.5",
+                width = "2.0",
+                tileWallsToo = false,
+                hasBathtub = true,
+                bathtubLength = "1.7",
+                bathtubWidth = "0.7",
+                bathtubHeight = "50",
+                bathtubShape = BathtubShape.ALL_SIDES,
+                tileBathtubTop = true,
+                bathtubTopWidthCm = "15",
+                bathtubTopEdgeTrimEnabled = true,
+                bathtubTopEdgeTrimMaterial = TrimMaterial.PLASTIC,
+                bathtubCornerTrimEnabled = true,
+                bathtubCornerTrimMaterial = TrimMaterial.PLASTIC
+            )
+        )
+
+        assertEquals(4.8, bathArea.bathroomState.bathtubLengthAroundM(UnitSystem.METERS), 0.001)
+        assertEquals(4, bathArea.bathroomState.bathtubCornerCount())
+
+        val result = TileCalculatorEngine.calculateJob(
+            Job(id = "job_bath_c", name = "Test Bath C", areas = listOf(bathArea))
+        )
+
+        assertEquals("Trims run must be 6.8 m", 6.8, result.trims.plasticTotalRunLengthM, 0.001)
+        assertEquals("Trim pieces must be 3", 3, result.trims.plasticPiecesNeeded)
+    }
+
+    @Test
+    fun testBathtub_CaseD_AgainstWall() {
+        // TEST D:
+        // Against wall (Front only):
+        // around = 1.7 m, 0 corners
+        // Trims = 1.7 m top + 0 corners = 1.7 m -> ceil(1.7 x 1.1 / 2.5) = 1 piece
+        val bathArea = AreaItem(
+            id = "bath_d",
+            name = "Bathroom",
+            type = SpaceType.BATHROOM,
+            bathroomState = BathroomState(
+                length = "2.5",
+                width = "2.0",
+                tileWallsToo = false,
+                hasBathtub = true,
+                bathtubLength = "1.7",
+                bathtubWidth = "0.7",
+                bathtubHeight = "50",
+                bathtubShape = BathtubShape.AGAINST_WALL,
+                tileBathtubTop = true,
+                bathtubTopWidthCm = "15",
+                bathtubTopEdgeTrimEnabled = true,
+                bathtubTopEdgeTrimMaterial = TrimMaterial.PLASTIC,
+                bathtubCornerTrimEnabled = true,
+                bathtubCornerTrimMaterial = TrimMaterial.PLASTIC
+            )
+        )
+
+        assertEquals(1.7, bathArea.bathroomState.bathtubLengthAroundM(UnitSystem.METERS), 0.001)
+        assertEquals(0, bathArea.bathroomState.bathtubCornerCount())
+
+        val result = TileCalculatorEngine.calculateJob(
+            Job(id = "job_bath_d", name = "Test Bath D", areas = listOf(bathArea))
+        )
+
+        assertEquals("Trims run must be 1.7 m", 1.7, result.trims.plasticTotalRunLengthM, 0.001)
+        assertEquals("Trim pieces must be 1", 1, result.trims.plasticPiecesNeeded)
+    }
+
+    @Test
+    fun testBathtub_LegacyJobDeserialization() {
+        // If an old saved job only has a bathtub height and width, load it as:
+        // Against the wall (front only), length = old width, height = old height, top off.
+        val legacyJson = JSONObject("""
+            {
+                "id": "old_bath_area",
+                "name": "Old Bathroom",
+                "type": "BATHROOM",
+                "bathroomState": {
+                    "length": "2.5",
+                    "width": "2.0",
+                    "hasBathtub": true,
+                    "bathtubWidth": "1.8",
+                    "bathtubHeight": "0.5"
+                }
+            }
+        """.trimIndent())
+
+        val deserialized = JobJsonSerializer.deserializeArea(legacyJson)
+        assertNotNull(deserialized)
+        val state = deserialized!!.bathroomState
+
+        assertTrue("Bathtub should be enabled", state.hasBathtub)
+        assertEquals("Bathtub length should take old width 1.8", "1.8", state.bathtubLength)
+        assertEquals("Bathtub shape should default to AGAINST_WALL", BathtubShape.AGAINST_WALL, state.bathtubShape)
+        assertEquals("Bathtub height should convert 0.5 m to 50 cm", "50", state.bathtubHeight)
+        assertTrue("Top tiling should be off", !state.tileBathtubTop)
+    }
+
+    @Test
+    fun testChange1_NoWasteOption() {
+        // TEST: Room 4 m x 3 m, 60x60 tiles, 4 per box, waste 0%:
+        // base tiles = ceil( 12 / 0.36 ) = 34, waste allowance = 0, boxes = 9 (36 tiles), spare tiles left over after boxes = 2.
+        val result = TileCalculatorEngine.calculate(
+            spaceType = SpaceType.ROOM_FLOOR,
+            unit = UnitSystem.METERS,
+            tileSettings = FloorTileSettingsState(
+                preset = TilePreset.SIZE_60X60,
+                tilesPerBox = "4",
+                wastePercentage = 0,
+                isCustomWaste = false
+            ),
+            materialSettings = MaterialSettingsState(),
+            roomState = RoomFloorState(
+                length = "4",
+                width = "3",
+                doorwayWidths = emptyList(),
+                hasSkirting = false
+            ),
+            verandaState = VerandaState(),
+            bathroomState = BathroomState()
+        )
+
+        assertEquals("Base floor tiles = 34", 34, result.baseFloorTiles)
+        assertEquals("Floor tiles with waste = 34", 34, result.floorTilesRawNeeded)
+        assertEquals("Waste allowance = 0", 0, result.floorWasteAllowanceTiles)
+        assertEquals("Boxes = 9", 9, result.floorBoxesToBuy)
+        assertEquals("Spare tiles = 2", 2, result.floorSpareTiles)
+        assertTrue(result.floorFormulaExplanation.contains("Extra for cuts and breakage (0%): 0 tiles"))
+    }
+
+    @Test
+    fun testChange2_Spacers_TestCaseA_BathroomJob() {
+        // Total tiles to lay = 461 tiles
+        // Whole job packs = ceil(461 x 2 x 1.1 / 100) = ceil(1014.2 / 100) = 11 packs
+        val slowSettings = MaterialSettingsState(
+            spacerBuyMode = SpacerBuyMode.REUSE_DAILY,
+            tilingSpeed = TilingSpeed.SLOW,
+            customPacksToBuy = "1",
+            spacersPerTile = "2",
+            spacerPackSize = "100",
+            spacerLossPercent = "10"
+        )
+        val slowResult = TileCalculatorEngine.calculateMaterials(
+            floorAreaM2 = 10.0,
+            skirtingAndStepAreaM2 = 0.0,
+            wallAreaM2 = 0.0,
+            floorTileLengthM = 0.6,
+            floorTileWidthM = 0.6,
+            hasWallTiles = false,
+            wallTileLengthM = 0.0,
+            wallTileWidthM = 0.0,
+            totalTilesCount = 461,
+            materialSettings = slowSettings
+        )
+        assertEquals(1, slowResult.spacerPacksToBuy)
+        assertEquals(11, slowResult.wholeJobSpacerPacks)
+        assertEquals("Reuse daily, Slow: 1 pack (the whole job would need 11)", slowResult.spacerFormulaExplanation)
+
+        val normalSettings = slowSettings.copy(
+            tilingSpeed = TilingSpeed.NORMAL,
+            customPacksToBuy = "3"
+        )
+        val normalResult = TileCalculatorEngine.calculateMaterials(
+            floorAreaM2 = 10.0,
+            skirtingAndStepAreaM2 = 0.0,
+            wallAreaM2 = 0.0,
+            floorTileLengthM = 0.6,
+            floorTileWidthM = 0.6,
+            hasWallTiles = false,
+            wallTileLengthM = 0.0,
+            wallTileWidthM = 0.0,
+            totalTilesCount = 461,
+            materialSettings = normalSettings
+        )
+        assertEquals(3, normalResult.spacerPacksToBuy)
+        assertEquals("Reuse daily, Normal: 3 packs (the whole job would need 11)", normalResult.spacerFormulaExplanation)
+
+        val fastSettings = slowSettings.copy(
+            tilingSpeed = TilingSpeed.FAST,
+            customPacksToBuy = "6"
+        )
+        val fastResult = TileCalculatorEngine.calculateMaterials(
+            floorAreaM2 = 10.0,
+            skirtingAndStepAreaM2 = 0.0,
+            wallAreaM2 = 0.0,
+            floorTileLengthM = 0.6,
+            floorTileWidthM = 0.6,
+            hasWallTiles = false,
+            wallTileLengthM = 0.0,
+            wallTileWidthM = 0.0,
+            totalTilesCount = 461,
+            materialSettings = fastSettings
+        )
+        assertEquals(6, fastResult.spacerPacksToBuy)
+        assertEquals("Reuse daily, Fast: 6 packs (the whole job would need 11)", fastResult.spacerFormulaExplanation)
+
+        val wholeJobSettings = slowSettings.copy(
+            spacerBuyMode = SpacerBuyMode.WHOLE_JOB
+        )
+        val wholeJobResult = TileCalculatorEngine.calculateMaterials(
+            floorAreaM2 = 10.0,
+            skirtingAndStepAreaM2 = 0.0,
+            wallAreaM2 = 0.0,
+            floorTileLengthM = 0.6,
+            floorTileWidthM = 0.6,
+            hasWallTiles = false,
+            wallTileLengthM = 0.0,
+            wallTileWidthM = 0.0,
+            totalTilesCount = 461,
+            materialSettings = wholeJobSettings
+        )
+        assertEquals(11, wholeJobResult.spacerPacksToBuy)
+        assertEquals("Whole job: 461 tiles x 2 spacers + 10% = 1014, so 11 packs", wholeJobResult.spacerFormulaExplanation)
+    }
+
+    @Test
+    fun testChange2_Spacers_TestCaseB_Room4x3CappedAtWholeJob() {
+        // Room 4 m x 3 m, 60x60 tiles, 10% waste -> 37 tiles
+        // Whole job = ceil(37 x 2 x 1.1 / 100) = ceil(81.4 / 100) = 1 pack
+        // Slow (1), Normal (3), Fast (6) all capped at 1 pack
+        val speeds = listOf(
+            TilingSpeed.SLOW to "1",
+            TilingSpeed.NORMAL to "3",
+            TilingSpeed.FAST to "6"
+        )
+        for ((speed, packs) in speeds) {
+            val settings = MaterialSettingsState(
+                spacerBuyMode = SpacerBuyMode.REUSE_DAILY,
+                tilingSpeed = speed,
+                customPacksToBuy = packs,
+                spacersPerTile = "2",
+                spacerPackSize = "100",
+                spacerLossPercent = "10"
+            )
+            val res = TileCalculatorEngine.calculateMaterials(
+                floorAreaM2 = 12.0,
+                skirtingAndStepAreaM2 = 0.0,
+                wallAreaM2 = 0.0,
+                floorTileLengthM = 0.6,
+                floorTileWidthM = 0.6,
+                hasWallTiles = false,
+                wallTileLengthM = 0.0,
+                wallTileWidthM = 0.0,
+                totalTilesCount = 37,
+                materialSettings = settings
+            )
+            assertEquals("Speed $speed must be capped at whole job = 1 pack", 1, res.spacerPacksToBuy)
+            assertEquals(1, res.wholeJobSpacerPacks)
+        }
+    }
+
+    @Test
+    fun testChange2_Spacers_TestCaseC_ManualPacksEdit() {
+        // If user manually types "5" packs, shopping list uses 5 packs (as long as <= whole job packs)
+        val settings = MaterialSettingsState(
+            spacerBuyMode = SpacerBuyMode.REUSE_DAILY,
+            tilingSpeed = TilingSpeed.NORMAL,
+            customPacksToBuy = "5",
+            spacersPerTile = "2",
+            spacerPackSize = "100",
+            spacerLossPercent = "10"
+        )
+        val res = TileCalculatorEngine.calculateMaterials(
+            floorAreaM2 = 10.0,
+            skirtingAndStepAreaM2 = 0.0,
+            wallAreaM2 = 0.0,
+            floorTileLengthM = 0.6,
+            floorTileWidthM = 0.6,
+            hasWallTiles = false,
+            wallTileLengthM = 0.0,
+            wallTileWidthM = 0.0,
+            totalTilesCount = 461,
+            materialSettings = settings
+        )
+        assertEquals("Custom edited packs should be 5", 5, res.spacerPacksToBuy)
+        assertEquals("Reuse daily: 5 packs (the whole job would need 11)", res.spacerFormulaExplanation)
+    }
+
+    @Test
+    fun testSerializationBackwardsCompatibility() {
+        val json = JSONObject("""
+            {
+                "id": "job_compat_test",
+                "name": "Compatibility Job",
+                "tileSettings": {
+                    "preset": "SIZE_60X60",
+                    "tilesPerBox": "4",
+                    "wastePercentage": 10
+                },
+                "materialSettings": {
+                    "baseCoverageAt5mm": "3.0"
+                },
+                "areas": []
+            }
+        """.trimIndent())
+        val job = JobJsonSerializer.deserializeJob(json)
+        assertNotNull(job)
+        assertEquals(SpacerBuyMode.REUSE_DAILY, job!!.materialSettings.spacerBuyMode)
+        assertEquals(TilingSpeed.NORMAL, job.materialSettings.tilingSpeed)
+        assertEquals("3", job.materialSettings.customPacksToBuy)
+        assertEquals("10", job.materialSettings.spacerLossPercent)
+        assertEquals(false, job.tileSettings.isCustomWaste)
     }
 }
 

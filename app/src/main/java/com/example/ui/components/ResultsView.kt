@@ -348,6 +348,26 @@ fun ResultsView(
                         detail = "Base ${result.baseWallTiles} + Waste ${result.wallWasteAllowanceTiles}",
                         testTag = "breakdown_wall_tiles"
                     )
+
+                    if (result.bathtubSidesAreaM2 > 0.0) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+                        BreakdownRow(
+                            label = "Bathtub sides: %.2f m²".format(java.util.Locale.US, result.bathtubSidesAreaM2),
+                            count = "%.2f m²".format(java.util.Locale.US, result.bathtubSidesAreaM2),
+                            detail = "Tiled bathtub sides area",
+                            testTag = "breakdown_bathtub_sides"
+                        )
+                    }
+
+                    if (result.bathtubTopAreaM2 > 0.0) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+                        BreakdownRow(
+                            label = "Bathtub top: %.2f m²".format(java.util.Locale.US, result.bathtubTopAreaM2),
+                            count = "%.2f m²".format(java.util.Locale.US, result.bathtubTopAreaM2),
+                            detail = "Tiled bathtub flat edge area",
+                            testTag = "breakdown_bathtub_top"
+                        )
+                    }
                 }
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
@@ -407,6 +427,32 @@ fun ResultsView(
                                 detail = "${area.spaceType.displayName} • ${area.summaryText}",
                                 testTag = "breakdown_area_${area.areaId}"
                             )
+                            if (area.bathtubSidesAreaM2 > 0.0 || area.bathtubTopAreaM2 > 0.0) {
+                                Spacer(modifier = Modifier.height(3.dp))
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(start = 12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                    if (area.bathtubSidesAreaM2 > 0.0) {
+                                        Text(
+                                            text = "• Bathtub sides: %.2f m²".format(java.util.Locale.US, area.bathtubSidesAreaM2),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                    if (area.bathtubTopAreaM2 > 0.0) {
+                                        Text(
+                                            text = "• Bathtub top: %.2f m²".format(java.util.Locale.US, area.bathtubTopAreaM2),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                }
+                            }
                             if (area.trimRuns.isNotEmpty()) {
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Column(
